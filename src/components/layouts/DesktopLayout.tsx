@@ -7,15 +7,14 @@ import { DesktopNav } from './responsiveNav/DesktopNav';
 import { MobileHeader } from './responsiveNav/MobileHeader';
 import AuthUI from '@/components/Auth';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { useServiceWorker } from '@/hooks/useServiceWorker'; // Import the custom hook
+import { useServiceWorker } from '@/hooks/useServiceWorker';
 import type { SectionType } from './responsiveNav/types';
 import DashboardPage from '@/app/dashboard/page';
 import TasksPage from '@/app/tasks/page';
 import NotesPage from '@/app/notes/page';
 import UserMenu from '../UserMenu';
-import { SearchInput } from '../SearchInput';
-import ClientLayout from './ClientLayout';
 import IntegratedSearch from '../IntegratedSearch';
+import ClientLayout from './ClientLayout';
 import ProjectsPage from '@/app/projects/page';
 import InstallPWA from '../InstallPWA';
 import PWAStatus from '../PWAStatus';
@@ -25,15 +24,38 @@ const DesktopLayout = () => {
   const { user, loading } = useSupabaseAuth();
   const [activeSection, setActiveSection] = useState<SectionType>('dashboard');
   
-  // Initialize the service worker when the component mounts
-  const { isActive } = useServiceWorker();
+  // Register and monitor the service worker
+  const { isActive, isRegistered, error } = useServiceWorker({
+    onSuccess: (registration) => {
+      console.log('Service worker registered successfully in DesktopLayout:', registration);
+    },
+    onUpdate: (registration) => {
+      // When there's an update to the service worker, we can notify the user
+      console.log('New content is available; please refresh.');
+      
+      // Optionally show a toast/notification to the user
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('OnDeck Update Available', {
+          body: 'New features are available. Refresh to update.',
+          icon: '/icons/icon-192x192.png'
+        });
+      }
+    },
+    onError: (err) => {
+      console.error('Service worker registration failed in DesktopLayout:', err);
+    }
+  });
   
-  // Debug log for development
+  // Log service worker status in development
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('Service worker active status:', isActive);
+      console.log('Service worker status in DesktopLayout:', { 
+        isActive, 
+        isRegistered,
+        error: error?.message
+      });
     }
-  }, [isActive]);
+  }, [isActive, isRegistered, error]);
 
   if (loading) {
     return (
@@ -136,7 +158,7 @@ const DesktopLayout = () => {
         </div>
       </div>
       
-      {/* PWA Status Debug (only visible in development) */}
+      {/* PWA Status Debug (visible in development) */}
       <PWAStatus showDebug={process.env.NODE_ENV === 'development'} />
       
       {/* Offline notification */}
